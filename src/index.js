@@ -4,6 +4,8 @@ var APP_ID = undefined;  // TODO replace with your app ID (OPTIONAL).
 
 var RapidAPI = new require('rapidapi-connect');
 var rapid = new RapidAPI('chatline', 'a177400e-389f-4ff2-9bf6-39605b63f2ff');
+var twilio = new RapidAPI("chatline", "a177400e-389f-4ff2-9bf6-39605b63f2ff");
+
 
 var languageStrings = {
     "en-GB": {
@@ -17,6 +19,28 @@ var languageStrings = {
     },
     "en-US": {
         "translation": {
+            "TEXTS": [
+                "Hi my name is Sally, you are not alone.",
+                "Tell me how your day went",
+                "How are you feeling? I'll listen.",
+                "Do you want to talk about it?",
+                "What's Wrong?",
+                "Tell me, if you don't mind.",
+                "It will be ok.",
+                "I'm here for you.",
+                "Need to talk?",
+                "What can I help you with?",
+                "I see; I understand.",
+                "I'm sorry to hear that.",
+                "You are not alone",
+                "I'm here if you need to talk",
+                "I care",
+                "I'm glad to hear that you're feeling better",
+                "Good",
+                "I'm listening",
+                "Just keep swimming",
+                "How are you feeling right now?"
+            ],
             "SKILL_NAME" : "Demo Skill",
             "MESSAGE" : "Hello World!",
             "HELP_MESSAGE" : "This is a demo, I don't actually do much!",
@@ -164,8 +188,33 @@ var handlers = {
                     max_emotion = emotion;
              }
              var max_score = (max_emotion.score * 100).toFixed(2);
-             this.emit(':tell', 'The highest tone score was for: ' + max_emotion.tone_name + '; the score was ' + max_score);
-             this.emit(':tell', rawText);
+
+            // Based on the emotion, send stuff to text
+            twilio.call('Twilio', 'sendSms', { 
+                'accountSid': 'ACd9d3c73231c51f61c06c7dcf9d358906',
+                'accountToken': 'dde2c380ea94af0d21183a20a1401650',
+                'from': '1 213-805-8610 ',
+                'messagingServiceSid': '',
+                'to': '1 310-765-0279',
+                'body': rawText + '; tone is ' + max_emotion.tone_name + '; score is ' + max_score,
+                'statusCallback': '',
+                'applicationSid': '',
+                'maxPrice': '',
+                'provideFeedback': ''
+             
+            }).on('success', (payload)=>{
+                if(max_emotion.tone_name == "Sadness") {
+                    this.emit(':tell', 'Flagged response; The highest tone score was for: '+ max_emotion.tone_name + '; the score was ' + max_score);
+                } else {
+                    // this.emit(':tell', 'The highest tone score was for: ' + max_emotion.tone_name + '; the score was ' + max_score);
+                    var textArr = this.t('TEXTS');
+                    var textIndex = Math.floor(Math.random() * textArr.length);
+                    var resp = textArr[textIndex];
+                    this.emit(':tell', resp);
+                }
+            }).on('error', (payload)=>{
+                this.emit(':tell', 'There was an error.');
+            });
         }).on('error', (payload)=>{
              this.emit(':tell', 'There was an error.');
         });
