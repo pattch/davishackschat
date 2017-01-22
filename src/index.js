@@ -2,6 +2,9 @@
 var Alexa = require('alexa-sdk');
 var APP_ID = undefined;  // TODO replace with your app ID (OPTIONAL).
 
+var RapidAPI = new require('rapidapi-connect');
+var rapid = new RapidAPI('chatline', 'a177400e-389f-4ff2-9bf6-39605b63f2ff');
+
 var languageStrings = {
     "en-GB": {
         "translation": {
@@ -107,10 +110,18 @@ var languageStrings = {
 //     }
 // };
 
+var rawText;
+
 exports.handler = function(event, context, callback) {
     var alexa = Alexa.handler(event, context);
     alexa.APP_ID = APP_ID;
     // To enable string internationalization (i18n) features, set a resources object.
+    if(typeof event.request != 'undefined')
+        rawText = event.request.intent.slots.Text.value;
+    else
+        rawText = '';
+    console.log(JSON.stringify(event));
+    console.log(rawText);
     alexa.resources = languageStrings;
     alexa.registerHandlers(handlers);
     alexa.execute();
@@ -133,7 +144,31 @@ var handlers = {
         // // Create speech output
         // var speechOutput = this.t("GET_FACT_MESSAGE") + randomFact;
         // this.emit(':tellWithCard', speechOutput, this.t("SKILL_NAME"), randomFact)
-        this.emit(':tell', this.t("MESSAGE"));
+
+        rapid.call('IBMWatsonToneAnalyzer', 'analyzeToneFromText', { 
+            'username': 'a64b3034-98f4-445e-915a-e7944bd19567',
+            'password': 'v3BWsjP3GyIY',
+            'text': rawText,
+            'tones': '',
+            'sentences': ''
+         
+        }).on('success', (payload)=>{
+             console.log(payload);
+             var tone_categories = payload.document_tone.tone_categories;
+             var emotion_category = tone_categories[0];
+             var emotions = emotion_category.tones;
+             var max_emotion = emotions[0];
+             for(var i = 0; i < emotions.length; i++) {
+                var emotion = emotions[i];
+                if(max_emotion.score < emotion.score)
+                    max_emotion = emotion;
+             }
+             var max_score = (max_emotion.score * 100).toFixed(2);
+             this.emit(':tell', 'The highest tone score was for: ' + max_emotion.tone_name + '; the score was ' + max_score);
+             this.emit(':tell', rawText);
+        }).on('error', (payload)=>{
+             this.emit(':tell', 'There was an error.');
+        });
     },
     'AMAZON.HelpIntent': function () {
         var speechOutput = this.t("HELP_MESSAGE");
